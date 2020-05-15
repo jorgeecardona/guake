@@ -19,6 +19,7 @@ Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 Boston, MA 02110-1301 USA
 """
 import json
+import yaml
 import logging
 import os
 import platform
@@ -1079,9 +1080,26 @@ class Guake(SimpleGladeApp):
             page_num = self.get_notebook().page_num(terminal.get_parent())
             self.get_notebook().rename_page(page_num, self.compute_tab_title(terminal), False)
 
+    def read_current_guake_yaml(self, vte):
+
+        cwd = Path(vte.get_current_directory())
+        guake_yaml = cwd.joinpath('.guake.yml')
+        if guake_yaml.is_file():
+            with guake_yaml.open() as fd:
+                return yaml.load(fd)
+
+        return None
+
     def compute_tab_title(self, vte):
         """Compute the tab title
         """
+
+        guake_yml = self.read_current_guake_yaml(vte)
+        print(guake_yml)
+        if guake_yml is not None:
+            if 'title' in guake_yml:
+                return guake_yml['title']
+
         vte_title = vte.get_window_title() or _("Terminal")
         try:
             current_directory = vte.get_current_directory()
@@ -1115,6 +1133,7 @@ class Guake(SimpleGladeApp):
             page_num = nb.page_num(box)
             if page_num != -1:
                 break
+
         # if tab has been renamed by user, don't override.
         if not getattr(box, "custom_label_set", False):
             title = self.compute_tab_title(vte)
@@ -1159,7 +1178,9 @@ class Guake(SimpleGladeApp):
     def terminal_spawned(self, notebook, terminal, pid):
         self.load_config(terminal_uuid=terminal.uuid)
         terminal.handler_ids.append(
-            terminal.connect("window-title-changed", self.on_terminal_title_changed, terminal)
+            terminal.connect(
+                "window-title-changed", self.on_terminal_title_changed, terminal
+            )
         )
 
     @save_tabs_when_changed
